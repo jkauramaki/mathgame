@@ -1,0 +1,222 @@
+
+# read in trials
+
+int lastRespCount;
+int lastResp;
+int lastRT;
+
+array<int> eqRating[0];
+array<int> eqRT[0];
+
+
+input_file f = new input_file;
+f.open( filename );
+
+# --- Read in trial template --- #
+array<string> all_lines[0];
+string str = f.get_line();
+loop until !f.last_succeeded() begin
+	all_lines.add(str);
+	str = f.get_line();
+end;
+f.close();
+
+# --- Separate lines --- #
+array<string> prime_line[0]; # first line the pair, "prime"
+array<string> target_line[0]; # second line, "target"
+
+loop int i = 1; until i > all_lines.count() begin
+	if (mod(i,2) == 1) then
+		prime_line.add(all_lines[i]);
+	else
+		target_line.add(all_lines[i]);
+	end;
+	i = i +1;
+end;
+
+# shuffle trial order
+array <int> trial_order[prime_line.count()];
+trial_order.fill(1,trial_order.count(),1,1);
+trial_order.shuffle();
+
+# set texts as formatted to allow bold+underline text
+t_equation_prime.set_formatted_text( true ); t_incorrect_prime.set_formatted_text( true ); t_correct_prime.set_formatted_text( true );
+t_equation_target.set_formatted_text( true ); t_incorrect_target.set_formatted_text( true ); t_correct_target.set_formatted_text( true );
+t_equation_answer.set_formatted_text( true ); t_incorrect_answer.set_formatted_text( true ); t_correct_answer.set_formatted_text( true );
+t_pause.set_formatted_text( true );
+t_mistakes_own.set_formatted_text( true ); 
+t_mistakes_avg.set_formatted_text( true );
+t_pause_only.set_formatted_text( true ); 
+t_end.set_formatted_text( true );
+t_correct_ans.set_formatted_text( true );
+t_feedback.set_formatted_text( true );
+
+# --- Init & write clean log --- #
+output_file mylog = new output_file; # create new custom logfile
+string subj_string=logfile.subject();
+if subj_string == "" then
+		subj_string="none";
+end;
+string mylog_name="" + subj_string + clean_log_suffix;
+if file_exists(logfile_directory + mylog_name) then
+	loop
+		int i = 1
+	until
+		(file_exists(logfile_directory + mylog_name) == false) || i > 50 
+	begin
+		mylog_name = subj_string + string(i) + clean_log_suffix;
+		i = i + 1
+	end;
+end;
+mylog.open(mylog_name, false ); # don't overwrite
+mylog.print("Subject\tTrial\tEqNo\tEq\tEqCorr\tResp\tRT\tCorrect\n");
+
+# init output port if there is such
+output_port port;
+if (output_port_manager.port_count() > 0) then      
+   port = output_port_manager.get_port( 1 );
+end;
+
+# start main loop
+int target_stim_time_in;
+int n_mistakes_own=0,n_correct=0;
+int avg_n_mistakes_others=0; # was: read_avg_mistakes(mistake_filename);
+bool is_resp_correct; # was the last response correct
+#term.print_line("read_avg_mistakes(): avg_n_mistakes_others = " + string(avg_n_mistakes_others));
+
+loop int i = 1; until i > trial_order.count() begin
+	int eq_no=trial_order[i];
+	
+	term.print_line("trial" + string(i) + ": equation: " + prime_line[eq_no]);
+
+	t_equation_prime.set_caption( show_prime(prime_line[eq_no]) );
+	t_equation_prime.redraw();
+	prime_trial.present();
+	if (filename == "slowpractice.txt") then wait_keypress.present(); end;
+	
+	t_equation_target.set_caption( show_target(prime_line[eq_no],target_line[eq_no]) ); t_equation_target.redraw();
+	# reset correct/incorrect buttons
+	t_incorrect_target.set_caption("väärin"); t_incorrect_target.redraw();
+	t_correct_target.set_caption("oikein"); t_correct_target.redraw();
+	#target_trial.set_duration(2995); 
+	
+	# present target trial and parse response, show feedback (bold-face answer), allow changing the response
+	target_stim_time_in=clock.time_dms();
+	target_trial.present();
+	if (filename == "slowpractice.txt") then wait_keypress.present(); end;
+	
+	response_data last;
+	stimulus_data last_stim=stimulus_manager.last_stimulus_data();
+	
+	if (bool( response_manager.response_count() ) && bool( stimulus_manager.stimulus_count() )) then
+		last = response_manager.last_response_data();
+		lastRT=last_stim.reaction_time();
+		lastResp=response_manager.last_response();
+		term.print_line("trial" + string(i) + " resp detected: " + string(lastResp) + " / " + string(lastRT) + " ms; target_trial_time_left=" + string((target_stim_time_in+29950-clock.time_dms())/10));
+	else
+		# no response within time, show brief timeout trial
+		timeout_trial.present();
+		lastResp=0;
+		lastRT=-1;
+	end;
+
+	term.print_line("trial" + string(i) + ": adding resp / RT: " + string(lastResp) + " / " + string(lastRT) + " ms");
+	eqRating.add(lastResp);
+	eqRT.add(lastRT);
+	
+	is_resp_correct=false;
+	# change also the correct trial feedback on buttons to indicate
+	if lastResp==1 then
+		t_incorrect_answer.set_caption("<b>väärin</b>"); t_incorrect_answer.redraw();
+		t_correct_answer.set_caption("oikein"); t_correct_answer.redraw();
+		if is_correct(prime_line[eq_no])==true then # respond "incorrect" but equation was right
+			n_mistakes_own=n_mistakes_own+1;
+			term.print_line("trial" + string(i) + ": adding mistake due resp incorrect/eq correct");
+			term.print_line("trial" + string(i) + ": adding mistake due resp incorrect/eq correct");
+			if (output_port_manager.port_count() > 0) && (filename != "practice.txt") && (filename != "slowpractice.txt") then
+				port.send_code( 11 ); # wrong answer trigger
+			end;
+			wrong_answer_feedback.present();
+		else
+			is_resp_correct=true;
+			n_correct=n_correct+1;
+			if (output_port_manager.port_count() > 0) && (filename != "practice.txt") && (filename != "slowpractice.txt") then
+				port.send_code( 10 ); # correct answer trigger
+			end;
+		end;
+	elseif lastResp==2 then
+		t_incorrect_answer.set_caption("väärin"); t_incorrect_answer.redraw();
+		t_correct_answer.set_caption("<b>oikein<b>"); t_correct_answer.redraw();
+		if is_correct(prime_line[eq_no])==false then # respond "correct" but equation was wrong
+			n_mistakes_own=n_mistakes_own+1;
+			term.print_line("trial" + string(i) + ": adding mistake due resp correct/eq wrong");
+			if (output_port_manager.port_count() > 0) && (filename != "practice.txt") && (filename != "slowpractice.txt") then
+				port.send_code( 11 ); # wrong answer trigger
+			end;
+			wrong_answer_feedback.present();
+		else
+			is_resp_correct=true;
+			n_correct=n_correct+1;
+			if (output_port_manager.port_count() > 0) && (filename != "practice.txt") && (filename != "slowpractice.txt") then
+				port.send_code( 10 ); # correct answer trigger
+			end;
+		end;
+	else
+		n_mistakes_own=n_mistakes_own+1; # no answer / miss, always add to error count
+		term.print_line("trial" + string(i) + ": adding mistake due to no answer");
+		t_incorrect_answer.set_caption("väärin"); t_incorrect_answer.redraw();
+		t_correct_answer.set_caption("oikein"); t_correct_answer.redraw();
+			if (output_port_manager.port_count() > 0) && (filename != "practice.txt") && (filename != "slowpractice.txt") then
+			port.send_code( 12 ); # timeout trigger
+		end;
+	end;
+	
+	t_equation_answer.set_caption( show_correct(prime_line[eq_no]) );
+	t_equation_answer.redraw();
+	correct_answer_trial.present();
+
+	# add log file
+	#mylog.print("Subject\tTrial\tEqNo\tEq\tEqCorr\tResp\tRT\tCorrect\n");
+	mylog.print(subj_string + "\t" + string(i) + "\t" + string(eq_no) + 
+		"\t" + prime_line[eq_no] + "\t" + string(is_correct(prime_line[eq_no])) + 
+		"\t" + string(lastResp) + "\t" + string(lastRT) + "\t" + string(is_resp_correct) + "\n");
+
+	blank_trial.present();
+	
+	if (i==int(trial_order.count()/2)) && (filename != "slowpractice.txt") then
+#		if n_mistakes_own==1 then
+#			t_mistakes_own.set_caption("TEIT <u>" + string(n_mistakes_own) + "</u> VIRHEEN"); t_mistakes_own.redraw();
+#		else
+#			t_mistakes_own.set_caption("TEIT <u>" + string(n_mistakes_own) + "</u> VIRHETTÄ"); t_mistakes_own.redraw();
+#		end;
+#		t_mistakes_avg.set_caption("MUILLA KESKIMÄÄRIN\n<u>" + string(avg_n_mistakes_others) + "</u> VIRHETTÄ"); t_mistakes_avg.redraw();
+		t_mistakes_own.set_caption(""); t_mistakes_own.redraw();
+		t_mistakes_avg.set_caption(""); t_mistakes_avg.redraw();
+		#add_mistakes(mistake_filename,n_mistakes_own); # append mistakes so far to a special log file
+		pause_trial.present();
+	end;
+
+	i = i + 1; 
+
+end;
+
+mylog.close();
+
+# show end trial with number of correct answers
+if (filename == "practice.txt") then
+	if (n_correct >= 5 ) then
+		# continuing with hard
+		t_correct_ans.set_caption("KOE OHI\nJATKETAAN OSIOON D"); 
+		#t_correct_ans.set_caption("OIKEITA VASTAUKSIA\nYHTEENSÄ: <u>" + string(n_correct) + "/" + string(trial_order.count()) + "</u>"); t_correct_ans.redraw();
+	else
+		t_correct_ans.set_caption("KOE OHI\nJATKETAAN OSIOON E");
+	end;
+	t_correct_ans.redraw();
+	t_feedback.redraw();
+	end_trial.present();
+else
+	t_correct_ans.set_caption("KOE OHI");
+	t_correct_ans.redraw();
+	t_feedback.redraw();
+	end_trial.present();
+end;	

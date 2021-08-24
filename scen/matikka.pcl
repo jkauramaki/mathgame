@@ -1,0 +1,477 @@
+# 2019-08-22 fixed a logic bug with subtractions / val2 replacement
+#
+# Parse text string to suitable output
+# prime_line, e.g. in style of "9+3=o"
+# parses the correct output, displays either bold-faced+underlined (in case of right answer as target/"o" )
+# or only underlined (in case of wrong target/"v")
+sub string show_correct( string prime_line )	
+begin
+	string out_line; 
+	bool trial_correct;
+	int trial_style; # 1 = plus, 2 = minus, 3 = multiplication, 4 = division
+	int val1,val2,result,oper_location;
+	array<string>string_values[0];
+	string eq_string,res_string;
+	if (prime_line.find("o")>0) then
+		trial_correct=true;
+	elseif (prime_line.find("v")>0) then
+		trial_correct=false;
+	else
+		return "invalid prime line"; # error, should not be possibe
+	end;
+	# parse operator
+	eq_string=prime_line.substring(1,prime_line.find("=")-1); # take only start of the equation ("9+3=o" => "9+3")
+	res_string=prime_line.substring(prime_line.find("=")+1,prime_line.count()-prime_line.find("=")); # take the end
+	if (prime_line.find("+")>0) then
+		trial_style=1;
+		eq_string.split("+",string_values);
+		oper_location=prime_line.find("+");
+	elseif (prime_line.find("-")>0) then
+		trial_style=2;
+		eq_string.split("-",string_values);
+		oper_location=prime_line.find("-");
+	elseif (prime_line.find("*")>0) then
+		trial_style=3;
+		eq_string.split("*",string_values);
+		oper_location=prime_line.find("-");
+	elseif (prime_line.find(":")>0) then
+		trial_style=4;
+		eq_string.split(":",string_values);
+		oper_location=prime_line.find(":");
+	else
+		return "invalid operator"; # error, should not be possibe
+	end;
+	# parse values
+	bool val1_missing,val2_missing,res_missing; # boolean values
+	val1_missing=false; val2_missing=false; res_missing=false;
+	if (string_values[1] == "v") || (string_values[1] == "o") then
+		val1=-9999; # fixed placeholder
+		val1_missing=true;
+	else
+		val1=int(string_values[1]);
+	end;
+	if (string_values[2] == "v") || (string_values[2] == "o") then
+		val2=-9999; # fixed placeholder
+		val2_missing=true;
+	else
+		val2=int(string_values[2]);
+	end;
+	if (res_string == "v") || (res_string == "o") then
+		result=-9999; # fixed placeholder
+		res_missing=true;
+	else
+		result=int(res_string);
+	end;
+
+	string oper_string;
+	# calculate missing value / result
+	if (trial_style==1) then
+		oper_string=" + ";
+		if (val1==-9999) then
+			val1=result-val2;
+		elseif (val2==-9999) then
+			val2=result-val1;
+		elseif (result==-9999) then
+			result=val1+val2;
+		end;
+	elseif (trial_style==2) then
+		oper_string=" - ";
+		if (val1==-9999) then
+			val1=result+val2;
+		elseif (val2==-9999) then
+			val2=val1-result;  # fixed bug 2019-08-22
+		elseif (result==-9999) then
+			result=val1-val2;
+		end;
+	elseif (trial_style==3) then
+		oper_string=" ∙ "; # using dot for multiplication instead of *
+		if (val1==-9999) then
+			val1=result/val2;
+		elseif (val2==-9999) then
+			val2=result/val1;
+		elseif (result==-9999) then
+			result=val1*val2;
+		end;
+	elseif (trial_style==4) then
+		oper_string=" : ";
+		if (val1==-9999) then
+			val1=result*val2;
+		elseif (val2==-9999) then
+			val2=val1/result;
+		elseif (result==-9999) then
+			result=val1/val2;
+		end;
+	end;
+	
+	# parse final output string
+	if trial_correct then
+		# missing value bold-face + underline
+		if val1_missing then
+			out_line="<u><b>" + string(val1) + "</b></u>" + oper_string + string(val2) + " = " + string(result);
+		elseif val2_missing then
+			out_line=string(val1) + oper_string + "<u><b>" + string(val2) + "</b></u>" + " = " + string(result);
+		else
+			out_line=string(val1) + oper_string + string(val2) + " = " + "<u><b>" + string(result) + "</b></u>";
+		end;
+	else
+		# trial incorrect, only underline
+		if val1_missing then
+			out_line="<u>" + string(val1) + "</u>" + oper_string + string(val2) + " = " + string(result);
+		elseif val2_missing then
+			out_line=string(val1) + oper_string + "<u>" + string(val2) + "</u>" + " = " + string(result);
+		else
+			out_line=string(val1) + oper_string + string(val2) + " = " + "<u>" + string(result) + "</u>";
+		end;
+	end;
+	
+	#out_line=string_values[1] + " oper" + string(trial_style) + " " + string_values[2] + " = " + res_string;
+	# plain line:
+	#out_line=string(val1) + " oper_string + " " + string(val2) + " = " + string(result);
+	return out_line;
+end;
+
+# parses prime line, e.g. "9+3=o", returns formatted line 
+sub string show_prime( string prime_line )
+begin
+	string out_line=prime_line; 
+	bool trial_correct;
+	int trial_style; # 1 = plus, 2 = minus, 3 = multiplication, 4 = division
+	int val1,val2,result,oper_location;
+	array<string>string_values[0];
+	string eq_string,res_string;
+	if (prime_line.find("o")>0) then
+		trial_correct=true;
+	elseif (prime_line.find("v")>0) then
+		trial_correct=false;
+	else
+		return "invalid prime line"; # error, should not be possibe
+	end;
+	# parse operator
+	eq_string=prime_line.substring(1,prime_line.find("=")-1); # take only start of the equation ("9+3=o" => "9+3")
+	res_string=prime_line.substring(prime_line.find("=")+1,prime_line.count()-prime_line.find("=")); # take the end
+	if (prime_line.find("+")>0) then
+		trial_style=1;
+		eq_string.split("+",string_values);
+		oper_location=prime_line.find("+");
+	elseif (prime_line.find("-")>0) then
+		trial_style=2;
+		eq_string.split("-",string_values);
+		oper_location=prime_line.find("-");
+	elseif (prime_line.find("*")>0) then
+		trial_style=3;
+		eq_string.split("*",string_values);
+		oper_location=prime_line.find("-");
+	elseif (prime_line.find(":")>0) then
+		trial_style=4;
+		eq_string.split(":",string_values);
+		oper_location=prime_line.find(":");
+	else
+		return "invalid operator"; # error, should not be possibe
+	end;
+	# parse values
+	bool val1_missing,val2_missing,res_missing; # boolean values
+	val1_missing=false; val2_missing=false; res_missing=false;
+	if (string_values[1] == "v") || (string_values[1] == "o") then
+		val1=-9999; # fixed placeholder
+		val1_missing=true;
+	else
+		val1=int(string_values[1]);
+	end;
+	if (string_values[2] == "v") || (string_values[2] == "o") then
+		val2=-9999; # fixed placeholder
+		val2_missing=true;
+	else
+		val2=int(string_values[2]);
+	end;
+	if (res_string == "v") || (res_string == "o") then
+		result=-9999; # fixed placeholder
+		res_missing=true;
+	else
+		result=int(res_string);
+	end;
+
+	string oper_string;
+	# calculate missing value / result
+	if (trial_style==1) then
+		oper_string=" + ";
+		if (val1==-9999) then
+			val1=result-val2;
+		elseif (val2==-9999) then
+			val2=result-val1;
+		elseif (result==-9999) then
+			result=val1+val2;
+		end;
+	elseif (trial_style==2) then
+		oper_string=" - ";
+		if (val1==-9999) then
+			val1=result+val2;
+		elseif (val2==-9999) then
+			val2=result+val1;
+		elseif (result==-9999) then
+			result=val1-val2;
+		end;
+	elseif (trial_style==3) then
+		oper_string=" ∙ "; # using dot for multiplication instead of *
+		if (val1==-9999) then
+			val1=result/val2;
+		elseif (val2==-9999) then
+			val2=result/val1;
+		elseif (result==-9999) then
+			result=val1*val2;
+		end;
+	elseif (trial_style==4) then
+		oper_string=" : ";
+		if (val1==-9999) then
+			val1=result*val2;
+		elseif (val2==-9999) then
+			val2=val1/result;
+		elseif (result==-9999) then
+			result=val1/val2;
+		end;
+	end;
+	
+	string placeholder_spaces="                "; # replace missing value with these approximate number-wide characters
+	# parse final output string
+		if val1_missing then
+			out_line="<u>" + placeholder_spaces.substring(1,string(val1).count()) + "</u>" + oper_string + string(val2) + " = " + string(result);
+		elseif val2_missing then
+			out_line=string(val1) + oper_string + "<u>" + placeholder_spaces.substring(1,string(val2).count()) + "</u>" + " = " + string(result);
+		else
+			out_line=string(val1) + oper_string + string(val2) + " = " + "<u>" + placeholder_spaces.substring(1,string(result).count()) + "</u>";
+		end;
+	
+	#out_line=string_values[1] + " oper" + string(trial_style) + " " + string_values[2] + " = " + res_string;
+	# plain line:
+	#out_line=string(val1) + " oper_string + " " + string(val2) + " = " + string(result);
+	return out_line;
+end;
+
+sub string show_target( string prime_line, string target_line )	
+begin
+	string out_line; 
+	bool trial_correct;
+	int trial_style; # 1 = plus, 2 = minus, 3 = multiplication, 4 = division
+	int val1,val2,result,oper_location;
+	int target_val1,target_val2,target_result;
+	array<string>string_values[0];
+	string eq_string,res_string;
+	if (prime_line.find("o")>0) then
+		trial_correct=true;
+	elseif (prime_line.find("v")>0) then
+		trial_correct=false;
+	else
+		return "invalid prime line"; # error, should not be possibe
+	end;
+	# parse operator
+	eq_string=prime_line.substring(1,prime_line.find("=")-1); # take only start of the equation ("9+3=o" => "9+3")
+	res_string=prime_line.substring(prime_line.find("=")+1,prime_line.count()-prime_line.find("=")); # take the end
+	if (prime_line.find("+")>0) then
+		trial_style=1;
+		eq_string.split("+",string_values);
+		oper_location=prime_line.find("+");
+	elseif (prime_line.find("-")>0) then
+		trial_style=2;
+		eq_string.split("-",string_values);
+		oper_location=prime_line.find("-");
+	elseif (prime_line.find("*")>0) then
+		trial_style=3;
+		eq_string.split("*",string_values);
+		oper_location=prime_line.find("-");
+	elseif (prime_line.find(":")>0) then
+		trial_style=4;
+		eq_string.split(":",string_values);
+		oper_location=prime_line.find(":");
+	else
+		return "invalid operator"; # error, should not be possibe
+	end;
+	# parse values
+	bool val1_missing,val2_missing,res_missing; # boolean values
+	val1_missing=false; val2_missing=false; res_missing=false;
+	if (string_values[1] == "v") || (string_values[1] == "o") then
+		val1=-9999; # fixed placeholder
+		val1_missing=true;
+	else
+		val1=int(string_values[1]);
+	end;
+	if (string_values[2] == "v") || (string_values[2] == "o") then
+		val2=-9999; # fixed placeholder
+		val2_missing=true;
+	else
+		val2=int(string_values[2]);
+	end;
+	if (res_string == "v") || (res_string == "o") then
+		result=-9999; # fixed placeholder
+		res_missing=true;
+	else
+		result=int(res_string);
+	end;
+
+	string oper_string;
+	# calculate missing value / result
+	if (trial_style==1) then
+		oper_string=" + ";
+		if (val1==-9999) then
+			val1=result-val2;
+		elseif (val2==-9999) then
+			val2=result-val1;
+		elseif (result==-9999) then
+			result=val1+val2;
+		end;
+	elseif (trial_style==2) then
+		oper_string=" - ";
+		if (val1==-9999) then
+			val1=result+val2;
+		elseif (val2==-9999) then
+			val2=result+val1;
+		elseif (result==-9999) then
+			result=val1-val2;
+		end;
+	elseif (trial_style==3) then
+		oper_string=" ∙ "; # using dot for multiplication instead of *
+		if (val1==-9999) then
+			val1=result/val2;
+		elseif (val2==-9999) then
+			val2=result/val1;
+		elseif (result==-9999) then
+			result=val1*val2;
+		end;
+	elseif (trial_style==4) then
+		oper_string=" : ";
+		if (val1==-9999) then
+			val1=result*val2;
+		elseif (val2==-9999) then
+			val2=val1/result;
+		elseif (result==-9999) then
+			result=val1/val2;
+		end;
+	end;
+	
+	# parse target line similarly
+	# parse operator
+	eq_string=target_line.substring(1,target_line.find("=")-1); # take only start of the equation ("9+3=o" => "9+3")
+	res_string=target_line.substring(target_line.find("=")+1,target_line.count()-target_line.find("=")); # take the end
+	if (target_line.find("+")>0) then
+		trial_style=1;
+		eq_string.split("+",string_values);
+		oper_location=target_line.find("+");
+	elseif (target_line.find("-")>0) then
+		trial_style=2;
+		eq_string.split("-",string_values);
+		oper_location=target_line.find("-");
+	elseif (target_line.find("*")>0) then
+		trial_style=3;
+		eq_string.split("*",string_values);
+		oper_location=target_line.find("-");
+	elseif (target_line.find(":")>0) then
+		trial_style=4;
+		eq_string.split(":",string_values);
+		oper_location=target_line.find(":");
+	else
+		return "invalid operator"; # error, should not be possibe
+	end;
+	# parse values, straightforward for target as no missing values
+	target_val1=int(string_values[1]);
+	target_val2=int(string_values[2]);
+	target_result=int(res_string);
+
+	# parse final output string
+	if val1_missing then
+		out_line="<u>" + string(target_val1) + "</u>" + oper_string + string(target_val2) + " = " + string(target_result);
+	elseif val2_missing then
+		out_line=string(target_val1) + oper_string + "<u>" + string(target_val2) + "</u>" + " = " + string(target_result);
+	else
+		out_line=string(target_val1) + oper_string + string(target_val2) + " = " + "<u>" + string(target_result) + "</u>";
+	end;
+	
+	#out_line=string_values[1] + " oper" + string(trial_style) + " " + string_values[2] + " = " + res_string;
+	# plain line:
+	#out_line=string(val1) + " oper_string + " " + string(val2) + " = " + string(result);
+	return out_line;
+end;
+
+# returns if the prime line is for correct trial (includes "o") or incorrect (includes "v")
+sub bool is_correct( string prime_line )	
+begin
+	bool trial_correct;
+	if (prime_line.find("o")>0) then
+		trial_correct=true;
+	elseif (prime_line.find("v")>0) then
+		trial_correct=false;
+	else
+		return false; # error, should not be possibe
+	end;
+	return trial_correct
+end;
+
+sub int read_avg_mistakes(string filename)
+begin
+	# read in avg number of mistakes
+	#string filename = "..\\logs\\mistakes.txt";  # using relative path
+
+	input_file f = new input_file;
+	f.open( filename );
+
+	# --- String pairs --- #
+	int mistake_count=0,n_lines=0;
+	array<string>string_values[0];
+	
+	string str = f.get_line();
+	loop until !f.last_succeeded() begin
+		str.split("\t",string_values);
+		if string_values.count()>1 then
+			mistake_count=mistake_count+int(string_values[2]);
+		end;
+		n_lines=n_lines+1;
+		str = f.get_line();
+	end;
+	#term.print_line("DEBUG: - inside read_mistakes(), mistake_count=" + string(mistake_count) + "; n_lines=" + string(n_lines));
+	f.close();
+	if n_lines>0 then
+		return int(mistake_count/n_lines);
+	end;
+	return 0
+end;
+
+sub add_mistakes(string filename, int n_mistakes)
+begin
+	# first read in number of mistakes
+	#string filename = "..\\logs\\mistakes.txt";  # using relative path
+
+	input_file f = new input_file;
+	f.open( filename );
+
+	# --- String pairs --- #
+	array<string> all_lines[0];
+	
+	string str = f.get_line();
+	loop until !f.last_succeeded() begin
+		all_lines.add(str);
+		str = f.get_line();
+	end;
+	f.close();
+	
+	#term.print_line("DEBUG:  - inside add_mistakes(), all_lines.count() = " + string(all_lines.count()));
+
+	string l = logfile.filename();
+	int strS=l.find("\Log")+4;
+	string logname = l.substring(strS,l.count()-strS-3);
+	string subj_id="";
+	if ( logfile.subject()=="" ) then
+		subj_id="noname";
+	else
+		subj_id=logfile.subject();
+	end;
+
+	output_file outfile = new output_file;
+	outfile.open(filename, true); #overwrite is true
+	
+	# write old lines
+	loop int i = 1; until i > all_lines.count() begin
+		outfile.print_line(all_lines[i]);
+		i = i +1;
+	end;	
+	# add new line
+	outfile.print_line(subj_id + "\t" + string(n_mistakes));
+	#term.print_line("DEBUG: - inside add_mistakes(), adding: " + subj_id + "\t" + string(n_mistakes));
+	outfile.close();
+end;
