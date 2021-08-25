@@ -8,6 +8,7 @@ Math gamed used in Puusepp et al. https://doi.org/10.3389/fpsyg.2021.635972 for 
 - Besides "normal" Presentation log, writes a simplified log file
 - By default, tries to write trigger codes for EEG synchronization. This requires some output definition in Presentation software. Try out the practice scenario for a game without triggers, or even slower-pace slow practice
 - All the main files have comment blocks in the beginning
+- The experiment has a few pre-cut options for wrong answer auditory feedback. Sounds with "fail" on its name are cut from "Sad Trombone.wav" https://freesound.org/s/73581/ (CC BY 3.0, unedited otherwise, only trimmed). Sounds with "fail2" on on file name are from "buzzer2.wav" https://freesound.org/s/164089/ (CC0 1.0). Currently edited version is using 100-ms extract from "buzzer2.wav". The feedback sound can be changed by editing matikka_definitions*.sce
 
 ## Input file notes
 Input file has the equations shown to the subject. Odd lines have priming line with missing number: letter "o" corresponds to correct answer (Finnish "oikea"), "v" for incorrect ("väärin"). The letter is replaced by an underscore during the experiment run, and the Presentation file calculates the missing value. Even lines have the full equation to be shown. See scen/*.txt for examples of syntax ("matikka-helpot" for easy tasks, "matikka-vaikeat" for slightly harder). Input file looks like 
